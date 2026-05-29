@@ -1,0 +1,16 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "manifest"
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+kdl.workspace = true
+kdl-derive.workspace = true
+miette.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

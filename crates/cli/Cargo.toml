@@ -1,16 +1,17 @@
 [package]
 authors.workspace = true
 edition.workspace = true
-name = "plum-manifest"
+name = "plum-cli"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
-kdl.workspace = true
-kdl-derive.workspace = true
+clap.workspace = true
+tokio.workspace = true
+supports-hyperlinks.workspace = true
+plum-ghc.workspace = true
+plum-manifest.workspace = true
 miette.workspace = true
-serde.workspace = true
-thiserror.workspace = true
 
 [lints]
 workspace = true

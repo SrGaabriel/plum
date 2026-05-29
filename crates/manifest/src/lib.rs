@@ -7,5 +7,6 @@ pub struct Manifest {
     pub description: Option<String>,
     pub repository: Option<String>,
     pub license: Option<String>,
+    #[kdl(default)]
+    pub lib: bool,
 }
-

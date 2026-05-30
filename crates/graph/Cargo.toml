@@ -1,16 +1,16 @@
 [package]
+name = "plum-graph"
 authors.workspace = true
 edition.workspace = true
-name = "plum-manifest"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
-serde.workspace = true
-serde_dhall.workspace = true
-miette.workspace = true
-thiserror.workspace = true
+plum-manifest.workspace = true
 fxhash.workspace = true
+thiserror.workspace = true
+petgraph.workspace = true
+lasso.workspace = true
 
 [lints]
 workspace = true

@@ -15,7 +15,7 @@ struct Cli {
 #[derive(Debug, clap::Subcommand)]
 enum Command {
     Build {
-        #[clap(long, default_value = "plum.toml")]
+        #[clap(long, default_value = "plum.dhall")]
         manifest: PathBuf
     }
 }

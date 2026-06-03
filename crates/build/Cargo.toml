@@ -1,11 +1,14 @@
 [package]
-name = "plum-orchestrator"
 authors.workspace = true
 edition.workspace = true
+name = "plum-build"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
+plum-graph.workspace = true
+plum-manifest.workspace = true
+plum-scheduler.workspace = true
 
 [lints]
 workspace = true

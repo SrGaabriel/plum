@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use fxhash::{FxHashMap, FxHashSet};
 use lasso::{Rodeo, RodeoReader, Spur};
-use petgraph::algo::{tarjan_scc, toposort};
-use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::Direction::{Incoming, Outgoing};
+use petgraph::algo::{tarjan_scc, toposort};
+use petgraph::graph::DiGraph;
+pub use petgraph::graph::NodeIndex;
 use plum_manifest::Manifest;
 
 #[derive(Debug, Clone)]
@@ -135,7 +136,13 @@ impl DependencyGraph {
     }
 
     pub fn index_of(&self, name: &str) -> Option<NodeIndex> {
-        self.interner.get(name).and_then(|s| self.name_to_idx.get(&s).copied())
+        self.interner
+            .get(name)
+            .and_then(|s| self.name_to_idx.get(&s).copied())
+    }
+
+    pub fn node(&self, n: NodeIndex) -> &BuildNode {
+        &self.graph[n]
     }
 
     pub fn node_indices(&self) -> impl Iterator<Item = NodeIndex> + '_ {

@@ -1,17 +1,16 @@
 [package]
 authors.workspace = true
 edition.workspace = true
-name = "plum-cli"
+name = "plum-scheduler"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
-clap.workspace = true
-tokio.workspace = true
-supports-hyperlinks.workspace = true
-plum-scheduler.workspace = true
+flume.workspace = true
+plum-graph.workspace = true
 plum-manifest.workspace = true
-miette.workspace = true
+thiserror.workspace = true
+fxhash.workspace = true
 
 [lints]
 workspace = true

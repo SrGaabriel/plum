@@ -1,19 +1,21 @@
 [package]
 authors.workspace = true
 edition.workspace = true
-name = "plum-hackage"
+name = "plum-resolver"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
-async-compression.workspace = true
 astral-tokio-tar.workspace = true
-flate2.workspace = true
+async-compression.workspace = true
+dirs.workspace = true
 futures-util.workspace = true
 fxhash.workspace = true
+plum-graph.workspace = true
+plum-manifest.workspace = true
 reqwest.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

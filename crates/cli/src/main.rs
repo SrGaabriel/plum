@@ -1,6 +1,6 @@
 mod build;
-mod style;
 mod manifest;
+mod style;
 
 use std::path::PathBuf;
 
@@ -16,8 +16,8 @@ struct Cli {
 enum Command {
     Build {
         #[clap(long, default_value = "plum.dhall")]
-        manifest: PathBuf
-    }
+        manifest: PathBuf,
+    },
 }
 
 fn main() {

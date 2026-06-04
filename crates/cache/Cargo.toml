@@ -1,0 +1,13 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "plum-cache"
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+turso.workspace = true
+rayon.workspace = true
+
+[lints]
+workspace = true

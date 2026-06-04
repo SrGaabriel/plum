@@ -1,4 +1,7 @@
-use std::{path::PathBuf, process::{Command, Stdio}};
+use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 use heck::ToPascalCase;
 use thiserror::Error;

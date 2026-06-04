@@ -1,17 +1,12 @@
 [package]
+name = "plum-version"
 authors.workspace = true
 edition.workspace = true
-name = "plum-manifest"
 repository.workspace = true
 version.workspace = true
 
 [dependencies]
 serde.workspace = true
-serde_dhall.workspace = true
-miette.workspace = true
-thiserror.workspace = true
-fxhash.workspace = true
-plum-version.workspace = true
 
 [lints]
 workspace = true

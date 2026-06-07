@@ -30,6 +30,57 @@ impl VersionReq {
             VersionReq::Greater(v) => version > v,
         }
     }
+
+    pub fn union(self, other: VersionReq) -> VersionReq {
+        match (self.lower_bound(), other.lower_bound()) {
+            (Some(va), Some(vb)) => {
+                if va <= vb {
+                    self
+                } else {
+                    other
+                }
+            }
+            _ => VersionReq::GreaterEq(Version::lowest()),
+        }
+    }
+
+    pub fn intersect(self, other: VersionReq) -> VersionReq {
+        match (self.lower_bound(), other.lower_bound()) {
+            (Some(va), Some(vb)) => {
+                if va >= vb {
+                    self
+                } else {
+                    other
+                }
+            }
+            (Some(_), None) => self,
+            (None, Some(_)) => other,
+            (None, None) => match (self.upper_bound(), other.upper_bound()) {
+                (Some(va), Some(vb)) if vb < va => other,
+                _ => self,
+            },
+        }
+    }
+
+    pub fn upper_bound(&self) -> Option<&Version> {
+        match self {
+            VersionReq::Less(v) | VersionReq::LessEq(v) => Some(v),
+            VersionReq::Exact(_)
+            | VersionReq::Caret(_)
+            | VersionReq::GreaterEq(_)
+            | VersionReq::Greater(_) => None,
+        }
+    }
+
+    pub fn lower_bound(&self) -> Option<&Version> {
+        match self {
+            VersionReq::Exact(v)
+            | VersionReq::Caret(v)
+            | VersionReq::GreaterEq(v)
+            | VersionReq::Greater(v) => Some(v),
+            VersionReq::Less(_) | VersionReq::LessEq(_) => None,
+        }
+    }
 }
 
 impl FromStr for VersionReq {

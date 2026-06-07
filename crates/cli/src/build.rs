@@ -7,6 +7,7 @@ use crate::{
 
 pub fn exec(manifest_path: &Path) {
     let manifest = parse_manifest(manifest_path);
+    println!("Manifest: {manifest:?}");
     let project_path = manifest_path.parent().unwrap_or_else(|| {
         style::error("Manifest file must be in a directory");
         std::process::exit(1);

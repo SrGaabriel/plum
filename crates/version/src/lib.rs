@@ -8,6 +8,12 @@ pub struct Version {
 }
 
 impl Version {
+    pub fn lowest() -> Self {
+        Version {
+            components: Box::new([]),
+        }
+    }
+
     pub fn major1(&self) -> Option<u64> {
         self.components.first().copied()
     }

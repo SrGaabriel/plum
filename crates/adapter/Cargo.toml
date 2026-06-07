@@ -1,0 +1,14 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "plum-adapter"
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+fxhash.workspace = true
+plum-cabal.workspace = true
+plum-manifest.workspace = true
+
+[lints]
+workspace = true

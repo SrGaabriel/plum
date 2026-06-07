@@ -1,21 +1,28 @@
+pub mod ctx;
 pub mod pvp;
 
 use fxhash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::pvp::{Version, VersionReq};
+use crate::{
+    ctx::Context,
+    pvp::{Version, VersionReq},
+};
 
 pub const MANIFEST_FILE: &str = "plum.dhall";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
     pub name: String,
-    pub version: Version,
+    #[serde(default, deserialize_with = "deserialize_version")]
+    pub version: Option<Version>,
     pub description: Option<String>,
     pub repository: Option<String>,
     pub license: Option<String>,
     #[serde(default)]
     pub lib: bool,
+    #[serde(rename = "ghcOptions", default)]
+    pub ghc_options: Vec<String>,
     pub dependencies: FxHashMap<String, Dependency>,
 }
 
@@ -38,9 +45,20 @@ pub struct DependencySpec {
 
 pub type Error = Box<serde_dhall::Error>;
 
+fn deserialize_version<'de, D>(deserializer: D) -> Result<Option<Version>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Version::deserialize(deserializer).map(Some)
+}
+
 impl Manifest {
-    pub fn parse(content: &str) -> Result<Self, Error> {
-        let manifest: Self = serde_dhall::from_str(content).parse()?;
+    pub fn parse(ctx: &Context, content: &str) -> Result<Self, Error> {
+        let context_str = serde_dhall::serialize(ctx)
+            .static_type_annotation()
+            .to_string()?;
+        let applied = format!("({content}) ({context_str})");
+        let manifest: Self = serde_dhall::from_str(&applied).parse()?;
         Ok(manifest)
     }
 }

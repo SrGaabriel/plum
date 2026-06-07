@@ -9,6 +9,7 @@ use futures_util::TryStreamExt;
 use plum_graph::DependencyGraph;
 use plum_manifest::{
     Dependency, DependencySpec, Manifest,
+    ctx::Context,
     pvp::{Version, VersionReq},
 };
 use reqwest::{Client, ClientBuilder, Response};
@@ -46,19 +47,26 @@ pub enum ResolverError {
     GitRefNotFound(String, String),
     #[error("version mismatch for '{0}': expected {1}, found {2}")]
     VersionMismatch(String, VersionReq, Version),
+    #[error("no plum manifest or cabal file found in '{0}'")]
+    NoManifest(String),
+    #[error("'{0}' has multiple cabal files; a package must have exactly one: {1}")]
+    MultipleCabalFiles(String, String),
+    #[error("cabal parse error for '{0}': {1}")]
+    CabalParse(String, #[source] Box<plum_cabal::Error>),
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Resolver {
+    context: Context,
     client: Client,
 }
 
 impl Resolver {
-    pub fn new() -> Self {
+    pub fn new(context: Context) -> Self {
         let client = ClientBuilder::new()
             .build()
             .expect("failed to build HTTP client");
-        Self { client }
+        Self { context, client }
     }
 
     pub async fn resolve_dependencies(
@@ -161,19 +169,15 @@ impl Resolver {
         version: Option<&VersionReq>,
         path: &std::path::Path,
     ) -> Result<plum_graph::NodeSpec, ResolverError> {
-        let manifest_path = path.join("plum.toml");
-        let manifest_str = std::fs::read_to_string(&manifest_path)
-            .map_err(|e| ResolverError::Io(name.to_string(), e))?;
-        let manifest = Manifest::parse(&manifest_str)
-            .map_err(|e| ResolverError::ManifestParse(name.to_string(), e))?;
-
+        let manifest = self.read_manifest(path)?;
         if let Some(version_req) = version
-            && !version_req.matches(&manifest.version)
+            && let Some(manifest_version) = &manifest.version
+            && !version_req.matches(manifest_version)
         {
             return Err(ResolverError::VersionMismatch(
                 name.to_string(),
                 version_req.clone(),
-                manifest.version,
+                manifest_version.clone(),
             ));
         }
 
@@ -185,6 +189,62 @@ impl Resolver {
         };
         Ok(node_spec)
     }
+
+    pub fn read_manifest(&self, root: &Path) -> Result<Manifest, ResolverError> {
+        let manifest_path = root.join(plum_manifest::MANIFEST_FILE);
+        if manifest_path.exists() {
+            let manifest_str = std::fs::read_to_string(&manifest_path)
+                .map_err(|e| ResolverError::Io(path_str(root), e))?;
+            return Manifest::parse(&self.context, &manifest_str)
+                .map_err(|e| ResolverError::ManifestParse(path_str(root), e));
+        }
+
+        let Some(cabal_path) = find_cabal_file(root)? else {
+            return Err(ResolverError::NoManifest(path_str(root)));
+        };
+        let cabal_str = std::fs::read_to_string(&cabal_path)
+            .map_err(|e| ResolverError::Io(path_str(&cabal_path), e))?;
+        let name = cabal_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("package.cabal");
+        let package = plum_cabal::parse_named(&cabal_str, name)
+            .map_err(|e| ResolverError::CabalParse(path_str(&cabal_path), e))?;
+        Ok(plum_adapter::adapt(package))
+    }
+}
+
+fn find_cabal_file(root: &Path) -> Result<Option<PathBuf>, ResolverError> {
+    let mut cabals = Vec::new();
+    for entry in std::fs::read_dir(root).map_err(|e| ResolverError::Io(path_str(root), e))? {
+        let path = entry
+            .map_err(|e| ResolverError::Io(path_str(root), e))?
+            .path();
+        if path.is_file()
+            && path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("cabal"))
+        {
+            cabals.push(path);
+        }
+    }
+    cabals.sort();
+    match cabals.len() {
+        0 => Ok(None),
+        1 => Ok(cabals.pop()),
+        _ => {
+            let names = cabals
+                .iter()
+                .map(|p| path_str(p))
+                .collect::<Vec<_>>()
+                .join(", ");
+            Err(ResolverError::MultipleCabalFiles(path_str(root), names))
+        }
+    }
+}
+
+fn path_str(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
 }
 
 enum DepSource<'a> {

@@ -47,7 +47,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 turso = "0.6"
 winnow = "1.0"
 # Local
+plum-adapter = { path = "crates/adapter" }
 plum-build = { path = "crates/build" }
+plum-cabal = { path = "crates/cabal" }
 plum-ghc = { path = "crates/ghc" }
 plum-graph = { path = "crates/graph" }
 plum-manifest = { path = "crates/manifest" }

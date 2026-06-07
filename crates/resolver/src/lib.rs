@@ -23,7 +23,7 @@ use crate::git::GitDependency;
 pub enum ResolverError {
     #[error(transparent)]
     GraphError(#[from] plum_graph::GraphError),
-    #[error("io error unpacking '{0}': {1}")]
+    #[error("io error for '{0}': {1}")]
     Io(String, #[source] std::io::Error),
     #[error("manifest parse error for '{0}': {1}")]
     ManifestParse(String, #[source] plum_manifest::Error),
@@ -94,7 +94,7 @@ impl Resolver {
                 self.fetch_git_dependency(name, version, git_dep).await
             }
             DepSource::Path(path, version) => self.node_spec_from(name, version, &path),
-            DepSource::Repo(_) => unimplemented!("repo dependencies not implemented yet"),
+            DepSource::Repo(version) => self.fetch_repo_dependency(name, version).await,
         }?;
 
         Ok(dep)
@@ -128,7 +128,7 @@ impl Resolver {
     async fn fetch_repo_dependency(
         &self,
         name: &str,
-        version: Option<&VersionReq>,
+        version: &VersionReq,
     ) -> Result<plum_graph::NodeSpec, ResolverError> {
         todo!()
     }

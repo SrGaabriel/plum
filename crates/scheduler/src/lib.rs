@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use flume::{Receiver, RecvError, Selector};
 use fxhash::FxHashMap;
+use plum_ghc::CompilationError;
 use plum_graph::{BuildNode, DependencyGraph, NodeIndex};
 use thiserror::Error;
 
@@ -13,27 +14,27 @@ pub struct BuildSummary {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum BuildError {
+pub enum GHCError {
     #[error("failed to spawn ghc for '{package}': {source}")]
     Spawn {
         package: String,
         #[source]
         source: std::io::Error,
     },
-    #[error("ghc exited with status {code:?} while building '{package}'")]
-    Ghc { package: String, code: Option<i32> },
+    #[error(transparent)]
+    Compilation(#[from] CompilationError),
 }
 
 enum Outcome {
     Built(NodeIndex),
-    Failed(NodeIndex, BuildError),
+    Failed(NodeIndex, GHCError),
     Skipped(NodeIndex),
 }
 
 #[derive(Debug, Error)]
 pub enum SchedulerError {
     #[error(transparent)]
-    Build(#[from] BuildError),
+    Build(#[from] GHCError),
     #[error("build cancelled")]
     Cancelled,
 }
@@ -46,20 +47,18 @@ enum Event {
 struct CoordResult {
     completed: usize,
     skipped: usize,
-    first_error: Option<BuildError>,
+    first_error: Option<GHCError>,
     external_cancel: bool,
 }
 
-pub fn run_build<G, F>(
+pub fn run_build<G>(
     graph: &DependencyGraph,
     num_workers: usize,
     cancel_rx: Option<&Receiver<()>>,
     is_fresh: G,
-    build_one: F,
 ) -> Result<BuildSummary, SchedulerError>
 where
     G: Fn(&BuildNode) -> bool,
-    F: Fn(&BuildNode, &DependencyGraph) -> Result<(), BuildError> + Sync,
 {
     let rebuild = graph.rebuild_set(is_fresh);
     let total = rebuild.len();
@@ -94,16 +93,15 @@ where
             let work_rx = work_rx.clone();
             let result_tx = result_tx.clone();
             let cancelled = &cancelled;
-            let build_one = &build_one;
             s.spawn(move || {
                 while let Ok(node) = work_rx.recv() {
                     if cancelled.load(Ordering::Relaxed) {
                         let _ = result_tx.send(Outcome::Skipped(node));
                         continue;
                     }
-                    let out = match build_one(graph.node(node), graph) {
+                    let out = match plum_ghc::compile_module(graph.node(node), &graph) {
                         Ok(()) => Outcome::Built(node),
-                        Err(e) => Outcome::Failed(node, e),
+                        Err(e) => Outcome::Failed(node, e.into()),
                     };
                     let _ = result_tx.send(out);
                 }
@@ -115,7 +113,7 @@ where
         let mut completed = 0usize;
         let mut skipped = 0usize;
         let mut inflight = 0usize;
-        let mut first_error: Option<BuildError> = None;
+        let mut first_error: Option<GHCError> = None;
         let mut external_cancel = false;
 
         for n in initial {

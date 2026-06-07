@@ -6,9 +6,13 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+flume.workspace = true
+num_cpus.workspace = true
 plum-graph.workspace = true
 plum-manifest.workspace = true
+plum-resolver.workspace = true
 plum-scheduler.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

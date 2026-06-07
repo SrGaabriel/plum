@@ -23,6 +23,7 @@ pub struct Manifest {
     pub lib: bool,
     #[serde(rename = "ghcOptions", default)]
     pub ghc_options: Vec<String>,
+    #[serde(default)]
     pub dependencies: FxHashMap<String, Dependency>,
 }
 

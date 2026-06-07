@@ -7,8 +7,11 @@ version.workspace = true
 
 [dependencies]
 fxhash.workspace = true
-thiserror.workspace = true
 heck.workspace = true
+plum-graph.workspace = true
+plum-manifest.workspace = true
+lasso.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

@@ -120,6 +120,7 @@ impl DependencyGraphBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct DependencyGraph {
     graph: DiGraph<BuildNode, ()>,
     interner: RodeoReader,

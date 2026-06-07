@@ -9,8 +9,8 @@ version.workspace = true
 clap.workspace = true
 tokio.workspace = true
 supports-hyperlinks.workspace = true
-plum-scheduler.workspace = true
 plum-manifest.workspace = true
+plum-build.workspace = true
 miette.workspace = true
 
 [lints]

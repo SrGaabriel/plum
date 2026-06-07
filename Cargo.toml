@@ -53,6 +53,7 @@ plum-cabal = { path = "crates/cabal" }
 plum-ghc = { path = "crates/ghc" }
 plum-graph = { path = "crates/graph" }
 plum-manifest = { path = "crates/manifest" }
+plum-resolver = { path = "crates/resolver" }
 plum-scheduler = { path = "crates/scheduler" }
 plum-version = { path = "crates/version" }
 

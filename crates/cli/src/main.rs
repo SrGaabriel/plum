@@ -20,9 +20,10 @@ enum Command {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Command::Build { manifest } => build::exec(&manifest),
+        Command::Build { manifest } => build::exec(&manifest).await,
     }
 }

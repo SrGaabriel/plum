@@ -9,6 +9,7 @@ version.workspace = true
 flume.workspace = true
 plum-graph.workspace = true
 plum-manifest.workspace = true
+plum-ghc.workspace = true
 thiserror.workspace = true
 fxhash.workspace = true
 

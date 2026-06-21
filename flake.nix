@@ -9,15 +9,15 @@
       pkgs = import nixpkgs { inherit system; };
     in {
       packages.${system} = {
-        plum-cli = pkgs.rustPlatform.buildRustPackage {
-          pname = "plum-cli";
+        plum = pkgs.rustPlatform.buildRustPackage {
+          pname = "plum";
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
-          cargoBuildFlags = [ "-p" "plum-cli" ];
+          cargoBuildFlags = [ "-p" "plum" ];
         };
 
-        default = self.packages.${system}.plum-cli;
+        default = self.packages.${system}.plum;
       };
     };
 }

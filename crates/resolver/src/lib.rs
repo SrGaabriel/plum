@@ -77,6 +77,14 @@ impl Resolver {
         root: &Path,
     ) -> Result<DependencyGraph, ResolverError> {
         let mut graph_builder = plum_graph::DependencyGraphBuilder::new();
+        let this = plum_graph::NodeSpec {
+            name: manifest.name.clone(),
+            path: root.to_path_buf(),
+            dependencies: manifest.dependencies.keys().cloned().collect(),
+            manifest: manifest.clone(),
+        };
+        graph_builder.add(this);
+
         let mut resolved: FxHashMap<String, Option<Version>> = FxHashMap::default();
         let mut pending: VecDeque<(String, Dependency, PathBuf)> = manifest
             .dependencies

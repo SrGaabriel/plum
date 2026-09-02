@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     manifest::{derive_context, parse_manifest},
-    style::{self, Tone},
+    style::{self},
 };
 
 pub async fn exec(manifest_path: &Path) {

@@ -22,7 +22,7 @@ pub async fn build(
     let graph = resolver.resolve_dependencies(manifest, project_dir).await?;
 
     let workers = num_cpus::get();
-    let (cancel_tx, cancel_rx) = flume::bounded(1);
+    let (_cancel_tx, cancel_rx) = flume::bounded(1);
     
     let result = run_build(&graph, workers, Some(&cancel_rx), |_| false)?;
     Ok(result)

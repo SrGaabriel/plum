@@ -13,7 +13,7 @@ pub fn parse_manifest(context: &Context, path: &Path) -> Manifest {
         style::error(format!("failed to read manifest file: {err}"));
         exit(1);
     });
-    Manifest::parse(&context, &content).unwrap_or_else(|err| {
+    Manifest::parse(context, &content).unwrap_or_else(|err| {
         style::error(format!("failed to parse manifest file: {err}"));
         exit(1);
     })

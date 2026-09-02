@@ -4,7 +4,6 @@ use flume::{Receiver, RecvError, Selector};
 use fxhash::FxHashMap;
 use plum_ghc::CompilationError;
 use plum_graph::{BuildNode, DependencyGraph, NodeIndex};
-use plum_manifest::Manifest;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy)]
@@ -101,7 +100,7 @@ where
                         continue;
                     }
                     let out = match plum_ghc::compile_module(graph.node(node), graph) {
-                        Ok(()) => Outcome::Built(node),
+                        Ok(_artifact) => Outcome::Built(node),
                         Err(e) => Outcome::Failed(node, e.into()),
                     };
                     let _ = result_tx.send(out);

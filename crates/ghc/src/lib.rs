@@ -14,7 +14,12 @@ pub enum CompilationError {
     CompilationError(String, i32),
 }
 
-pub fn compile_module(node: &BuildNode, graph: &DependencyGraph) -> Result<(), CompilationError> {
+pub struct Artifact {}
+
+pub fn compile_module(
+    node: &BuildNode,
+    graph: &DependencyGraph,
+) -> Result<Artifact, CompilationError> {
     let module_path = &node.path;
     let name = graph.resolve(node.name);
 
@@ -38,5 +43,5 @@ pub fn compile_module(node: &BuildNode, graph: &DependencyGraph) -> Result<(), C
             output.status.code().unwrap_or(-1),
         ));
     }
-    Ok(())
+    Ok(Artifact {})
 }

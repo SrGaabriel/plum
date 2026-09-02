@@ -14,7 +14,7 @@ pub async fn exec(manifest_path: &Path) {
         std::process::exit(1);
     });
 
-    let result = plum_build::build(context, &manifest).await;
+    let result = plum_build::build(context, &manifest, project_path).await;
     match result {
         Ok(summary) => {
             println!("built {} modules", summary.built);

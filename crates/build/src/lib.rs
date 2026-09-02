@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use plum_manifest::{Manifest, ctx::Context};
 use plum_resolver::{Resolver, ResolverError};
 use plum_scheduler::{BuildSummary, SchedulerError, run_build};
@@ -11,13 +13,17 @@ pub enum BuildError {
     Resolver(#[from] ResolverError),
 }
 
-pub async fn build(context: Context, manifest: &Manifest) -> Result<BuildSummary, BuildError> {
+pub async fn build(
+    context: Context,
+    manifest: &Manifest,
+    project_dir: &Path,
+) -> Result<BuildSummary, BuildError> {
     let resolver = Resolver::new(context);
-    let graph = resolver.resolve_dependencies(manifest).await?;
+    let graph = resolver.resolve_dependencies(manifest, project_dir).await?;
 
     let workers = num_cpus::get();
     let (cancel_tx, cancel_rx) = flume::bounded(1);
     
-    let result = run_build(&graph, workers, Some(&cancel_rx), |_| true)?;
+    let result = run_build(&graph, workers, Some(&cancel_rx), |_| false)?;
     Ok(result)
 }

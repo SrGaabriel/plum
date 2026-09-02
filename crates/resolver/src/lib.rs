@@ -2,10 +2,12 @@ mod cache;
 mod git;
 mod hackage;
 
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
 use async_compression::tokio::bufread::GzipDecoder;
 use futures_util::TryStreamExt;
+use fxhash::FxHashMap;
 use plum_graph::DependencyGraph;
 use plum_manifest::{
     Dependency, DependencySpec, Manifest,
@@ -72,12 +74,31 @@ impl Resolver {
     pub async fn resolve_dependencies(
         &self,
         manifest: &Manifest,
+        root: &Path,
     ) -> Result<DependencyGraph, ResolverError> {
         let mut graph_builder = plum_graph::DependencyGraphBuilder::new();
-        for (name, dep) in &manifest.dependencies {
-            let node_spec = self.resolve_dependency(name, dep).await?;
+        let mut resolved: FxHashMap<String, Option<Version>> = FxHashMap::default();
+        let mut pending: VecDeque<(String, Dependency, PathBuf)> = manifest
+            .dependencies
+            .iter()
+            .map(|(name, dep)| (name.clone(), dep.clone(), root.to_path_buf()))
+            .collect();
+
+        while let Some((name, dep, base)) = pending.pop_front() {
+            if let Some(existing) = resolved.get(&name) {
+                check_version(&name, dep.version_req(), existing.as_ref())?;
+                continue;
+            }
+
+            let node_spec = self.resolve_dependency(&name, &dep, &base).await?;
+            resolved.insert(name, node_spec.manifest.version.clone());
+
+            for (dep_name, dep_spec) in &node_spec.manifest.dependencies {
+                pending.push_back((dep_name.clone(), dep_spec.clone(), node_spec.path.clone()));
+            }
             graph_builder.add(node_spec);
         }
+
         let graph = graph_builder.build()?;
         Ok(graph)
     }
@@ -86,8 +107,9 @@ impl Resolver {
         &self,
         name: &str,
         dep: &Dependency,
+        base: &Path,
     ) -> Result<plum_graph::NodeSpec, ResolverError> {
-        let src = DepSource::from_dep_spec(name, dep)?;
+        let src = DepSource::from_dep_spec(name, dep, base)?;
 
         let dep = match src {
             DepSource::Git(git_dep, version) => {
@@ -170,16 +192,7 @@ impl Resolver {
         path: &std::path::Path,
     ) -> Result<plum_graph::NodeSpec, ResolverError> {
         let manifest = self.read_manifest(path)?;
-        if let Some(version_req) = version
-            && let Some(manifest_version) = &manifest.version
-            && !version_req.matches(manifest_version)
-        {
-            return Err(ResolverError::VersionMismatch(
-                name.to_string(),
-                version_req.clone(),
-                manifest_version.clone(),
-            ));
-        }
+        check_version(name, version, manifest.version.as_ref())?;
 
         let node_spec = plum_graph::NodeSpec {
             name: manifest.name.clone(),
@@ -243,6 +256,37 @@ fn find_cabal_file(root: &Path) -> Result<Option<PathBuf>, ResolverError> {
     }
 }
 
+fn check_version(
+    name: &str,
+    req: Option<&VersionReq>,
+    found: Option<&Version>,
+) -> Result<(), ResolverError> {
+    if let Some(req) = req
+        && let Some(found) = found
+        && !req.matches(found)
+    {
+        return Err(ResolverError::VersionMismatch(
+            name.to_string(),
+            req.clone(),
+            found.clone(),
+        ));
+    }
+    Ok(())
+}
+
+trait VersionRequirement {
+    fn version_req(&self) -> Option<&VersionReq>;
+}
+
+impl VersionRequirement for Dependency {
+    fn version_req(&self) -> Option<&VersionReq> {
+        match self {
+            Dependency::Version(v) => Some(v),
+            Dependency::Detailed(d) => d.version.as_ref(),
+        }
+    }
+}
+
 fn path_str(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -254,14 +298,18 @@ enum DepSource<'a> {
 }
 
 impl<'a> DepSource<'a> {
-    fn from_dep_spec(name: &'a str, spec: &'a Dependency) -> Result<Self, ResolverError> {
+    fn from_dep_spec(
+        name: &'a str,
+        spec: &'a Dependency,
+        base: &Path,
+    ) -> Result<Self, ResolverError> {
         match spec {
             Dependency::Version(version) => Ok(DepSource::Repo(version)),
             Dependency::Detailed(details) => {
                 if let Some(git) = &details.git {
                     DepSource::from_git_spec(name, git, details)
                 } else if let Some(path) = &details.path {
-                    let path = match Path::new(path).canonicalize() {
+                    let path = match base.join(path).canonicalize() {
                         Ok(p) => p,
                         Err(e) => {
                             return Err(ResolverError::Io(name.to_string(), e));

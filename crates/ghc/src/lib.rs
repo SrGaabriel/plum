@@ -25,11 +25,13 @@ pub fn compile_module(node: &BuildNode, graph: &DependencyGraph) -> Result<(), C
         let lib_name = name.to_pascal_case();
         command.arg("-isrc").arg(lib_name);
     } else {
+        command.arg("-o").arg(format!("{BUILD_FOLDER_NAME}/{name}"));
         command.arg("-isrc").arg("src/Main.hs");
     }
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
     let output = command.output()?;
+    println!("output of {command:?} is {output:?}");
     if !output.status.success() {
         return Err(CompilationError::CompilationError(
             name.to_string(),

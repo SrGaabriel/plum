@@ -1,4 +1,5 @@
-module Example (exemplary) where
+module Main where
+import Test (example)
 
-exemplary :: String
-exemplary = "This is an exemplary string."
+main :: IO ()
+main = putStrLn example

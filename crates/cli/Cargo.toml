@@ -11,6 +11,11 @@ tokio.workspace = true
 supports-hyperlinks.workspace = true
 plum-manifest.workspace = true
 plum-build.workspace = true
+plum-graph.workspace = true
+plum-resolver.workspace = true
+mago-pager.workspace = true
+owo-colors.workspace = true
+indicatif.workspace = true
 miette.workspace = true
 
 [lints]

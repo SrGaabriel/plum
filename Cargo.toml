@@ -27,6 +27,7 @@ num_cpus = "1.17.0"
 owo-colors = { version = "4.3", features = ["supports-colors"] }
 petgraph = { version = "0.8", features = ["rayon"] }
 rayon = "1.12"
+mago-pager = "1.0.0-beta.34"
 reqwest = { version = "0.13.4", features = [
     "http2",
     "json",

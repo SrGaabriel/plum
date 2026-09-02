@@ -1,4 +1,7 @@
-use std::process::{Command, Stdio};
+use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 use heck::ToPascalCase;
 use plum_graph::{BuildNode, DependencyGraph};
@@ -14,7 +17,9 @@ pub enum CompilationError {
     CompilationError(String, i32),
 }
 
-pub struct Artifact {}
+pub struct Artifact {
+    pub output: PathBuf,
+}
 
 pub fn compile_module(
     node: &BuildNode,
@@ -26,13 +31,17 @@ pub fn compile_module(
     let mut command = Command::new("ghc");
     command.current_dir(module_path);
     command.arg("-outputdir").arg(BUILD_FOLDER_NAME);
+
+    let output_file: PathBuf;
     if node.manifest.lib {
+        output_file = format!("{BUILD_FOLDER_NAME}/{name}.o").into();
         let lib_name = name.to_pascal_case();
         command.arg("-isrc").arg(lib_name);
     } else {
-        command.arg("-o").arg(format!("{BUILD_FOLDER_NAME}/{name}"));
+        output_file = format!("{BUILD_FOLDER_NAME}/{name}").into();
         command.arg("-isrc").arg("src/Main.hs");
     }
+    command.arg("-o").arg(&output_file);
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
     let output = command.output()?;
@@ -43,5 +52,7 @@ pub fn compile_module(
             output.status.code().unwrap_or(-1),
         ));
     }
-    Ok(Artifact {})
+    Ok(Artifact {
+        output: output_file,
+    })
 }

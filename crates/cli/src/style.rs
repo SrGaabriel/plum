@@ -1,8 +1,14 @@
 #![allow(dead_code)]
 
+use std::borrow::Cow;
 use std::fmt::{self, Display};
 use std::io::{IsTerminal, Write};
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::time::Duration;
+
+use indicatif::{ProgressBar, ProgressStyle};
+use owo_colors::OwoColorize;
+pub use owo_colors::Style;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
 pub enum ColorMode {
@@ -21,7 +27,8 @@ pub enum Verbosity {
 }
 
 static VERBOSITY: AtomicU8 = AtomicU8::new(1);
-static COLOR_ENABLED: AtomicBool = AtomicBool::new(true);
+
+static COLOR: AtomicU8 = AtomicU8::new(0);
 
 pub fn init(color: ColorMode, verbosity: Verbosity) {
     VERBOSITY.store(verbosity as u8, Ordering::Relaxed);
@@ -29,11 +36,13 @@ pub fn init(color: ColorMode, verbosity: Verbosity) {
     let enabled = match color {
         ColorMode::Always => true,
         ColorMode::Never => false,
-        ColorMode::Auto => {
-            std::env::var_os("NO_COLOR").is_none() && std::io::stdout().is_terminal()
-        }
+        ColorMode::Auto => detect_color(),
     };
-    COLOR_ENABLED.store(enabled, Ordering::Relaxed);
+    COLOR.store(if enabled { 2 } else { 1 }, Ordering::Relaxed);
+}
+
+fn detect_color() -> bool {
+    std::env::var_os("NO_COLOR").is_none() && std::io::stdout().is_terminal()
 }
 
 pub fn verbosity() -> Verbosity {
@@ -52,33 +61,100 @@ pub fn is_verbose() -> bool {
     verbosity() == Verbosity::Verbose
 }
 
-fn color_enabled() -> bool {
-    COLOR_ENABLED.load(Ordering::Relaxed)
+pub fn color_enabled() -> bool {
+    match COLOR.load(Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => {
+            let enabled = detect_color();
+            COLOR.store(if enabled { 2 } else { 1 }, Ordering::Relaxed);
+            enabled
+        }
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Tone {
     Progress,
     Success,
     Note,
     Accent,
     Error,
+    Warning,
 }
 
-const RESET: &str = "\x1b[0m";
-const DIM: &str = "\x1b[2m";
-const BOLD_GREEN: &str = "\x1b[1;32m";
-const BOLD_CYAN: &str = "\x1b[1;36m";
-const CYAN: &str = "\x1b[36m";
-const BOLD_RED: &str = "\x1b[1;31m";
-const RED: &str = "\x1b[31m";
-const BOLD_YELLOW: &str = "\x1b[1;33m";
+impl Tone {
+    pub fn style(self) -> Style {
+        match self {
+            Tone::Progress => Style::new().bold().cyan(),
+            Tone::Success => Style::new().bold().green(),
+            Tone::Note => Style::new().dimmed(),
+            Tone::Accent => Style::new().cyan(),
+            Tone::Error => Style::new().bold().red(),
+            Tone::Warning => Style::new().bold().yellow(),
+        }
+    }
+}
+
+pub fn styled(text: impl Display, style: Style) -> String {
+    Painter::auto().paint(text, style)
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Painter {
+    enabled: bool,
+}
+
+impl Painter {
+    pub fn new(enabled: bool) -> Self {
+        Self { enabled }
+    }
+
+    pub fn auto() -> Self {
+        Self::new(color_enabled())
+    }
+
+    pub fn enabled(self) -> bool {
+        self.enabled
+    }
+
+    pub fn paint(self, text: impl Display, style: Style) -> String {
+        if self.enabled {
+            text.style(style).to_string()
+        } else {
+            text.to_string()
+        }
+    }
+
+    pub fn tone(self, text: impl Display, tone: Tone) -> String {
+        self.paint(text, tone.style())
+    }
+
+    pub fn dim(self, text: impl Display) -> String {
+        self.paint(text, Style::new().dimmed())
+    }
+
+    pub fn bold(self, text: impl Display) -> String {
+        self.paint(text, Style::new().bold())
+    }
+}
+
+pub fn paint(text: impl Display, tone: Tone) -> String {
+    styled(text, tone.style())
+}
+
+pub fn dim(text: impl Display) -> String {
+    styled(text, Style::new().dimmed())
+}
+
+pub fn bold(text: impl Display) -> String {
+    styled(text, Style::new().bold())
+}
 
 pub fn format_status(tone: Tone, verb: &str, subject: impl Display) -> String {
-    let subject = subject.to_string();
     match tone {
-        Tone::Error => paint_full(&format!("{verb} {subject}"), tone),
-        _ => format!("{} {}", paint_verb(verb, tone), dim(&subject)),
+        Tone::Error => styled(format!("{verb} {subject}"), Style::new().red()),
+        _ => format!("{} {}", paint(verb, tone), dim(subject)),
     }
 }
 
@@ -88,48 +164,9 @@ pub fn format_status_with_meta(
     subject: impl Display,
     meta: impl Display,
 ) -> String {
-    let subject = subject.to_string();
-    let meta = meta.to_string();
     match tone {
-        Tone::Error => paint_full(&format!("{verb} {subject} {meta}"), tone),
-        _ => format!(
-            "{} {} {}",
-            paint_verb(verb, tone),
-            dim(&subject),
-            dim(&meta)
-        ),
-    }
-}
-
-pub fn paint_verb(verb: &str, tone: Tone) -> String {
-    if !color_enabled() {
-        return verb.to_string();
-    }
-    let code = match tone {
-        Tone::Progress => BOLD_CYAN,
-        Tone::Success => BOLD_GREEN,
-        Tone::Note => DIM,
-        Tone::Accent => CYAN,
-        Tone::Error => BOLD_RED,
-    };
-    format!("{code}{verb}{RESET}")
-}
-
-fn paint_full(text: &str, tone: Tone) -> String {
-    if !color_enabled() {
-        return text.to_string();
-    }
-    match tone {
-        Tone::Error => format!("{RED}{text}{RESET}"),
-        _ => format!("{DIM}{text}{RESET}"),
-    }
-}
-
-pub fn dim(text: impl Display) -> String {
-    if color_enabled() {
-        format!("{DIM}{text}{RESET}")
-    } else {
-        text.to_string()
+        Tone::Error => styled(format!("{verb} {subject} {meta}"), Style::new().red()),
+        _ => format!("{} {} {}", paint(verb, tone), dim(subject), dim(meta)),
     }
 }
 
@@ -150,21 +187,29 @@ pub fn status_meta(tone: Tone, verb: &str, subject: impl Display, meta: impl Dis
 }
 
 pub fn error(msg: impl Display) {
-    let prefix = if color_enabled() {
-        format!("{BOLD_RED}error:{RESET}")
-    } else {
-        "error:".to_string()
-    };
-    eprintln!("{prefix} {msg}");
+    eprintln!("{} {msg}", paint("error:", Tone::Error));
 }
 
 pub fn warning(msg: impl Display) {
-    let prefix = if color_enabled() {
-        format!("{BOLD_YELLOW}warning:{RESET}")
+    eprintln!("{} {msg}", paint("warning:", Tone::Warning));
+}
+
+pub fn spinner(message: impl Into<Cow<'static, str>>) -> ProgressBar {
+    if is_quiet() || !std::io::stderr().is_terminal() {
+        return ProgressBar::hidden();
+    }
+    let template = if color_enabled() {
+        "{spinner:.cyan.bold} {msg}"
     } else {
-        "warning:".to_string()
+        "{spinner} {msg}"
     };
-    eprintln!("{prefix} {msg}");
+    let style = ProgressStyle::with_template(template)
+        .expect("spinner template is valid")
+        .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ");
+    let bar = ProgressBar::new_spinner().with_style(style);
+    bar.set_message(message);
+    bar.enable_steady_tick(Duration::from_millis(80));
+    bar
 }
 
 pub struct Hyperlink<'a> {

@@ -1,3 +1,4 @@
+use std::ops::Index;
 use std::path::PathBuf;
 
 use fxhash::{FxHashMap, FxHashSet};
@@ -6,6 +7,7 @@ use petgraph::Direction::{Incoming, Outgoing};
 use petgraph::algo::{tarjan_scc, toposort};
 use petgraph::graph::DiGraph;
 pub use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
 use plum_manifest::Manifest;
 
 #[derive(Debug, Clone)]
@@ -168,6 +170,52 @@ impl DependencyGraph {
             .filter(move |&n| self.graph.neighbors_directed(n, Incoming).next().is_none())
     }
 
+    pub fn sinks(&self) -> impl Iterator<Item = NodeIndex> + '_ {
+        self.graph
+            .node_indices()
+            .filter(move |&n| self.graph.neighbors_directed(n, Outgoing).next().is_none())
+    }
+
+    pub fn is_sink(&self, n: NodeIndex) -> bool {
+        self.graph.neighbors_directed(n, Outgoing).next().is_none()
+    }
+
+    pub fn edges(&self) -> impl Iterator<Item = (NodeIndex, NodeIndex)> + '_ {
+        self.graph
+            .edge_references()
+            .map(|e| (e.source(), e.target()))
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.graph.node_count()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.graph.edge_count()
+    }
+
+    pub fn layers(&self) -> Layers {
+        let mut depth = vec![0usize; self.graph.node_count()];
+        for n in self.build_order() {
+            depth[n.index()] = self
+                .dependencies(n)
+                .map(|d| depth[d.index()] + 1)
+                .max()
+                .unwrap_or(0);
+        }
+
+        let height = depth.iter().max().map_or(0, |max| max + 1);
+        let mut layers = vec![Vec::new(); height];
+        for n in self.graph.node_indices() {
+            layers[depth[n.index()]].push(n);
+        }
+        for layer in &mut layers {
+            layer.sort_by_key(|&n| self.node_name(n));
+        }
+
+        Layers { depth, layers }
+    }
+
     pub fn build_order(&self) -> Vec<NodeIndex> {
         toposort(&self.graph, None).expect("graph validated acyclic at construction")
     }
@@ -187,5 +235,53 @@ impl DependencyGraph {
             }
         }
         dirty
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Layers {
+    depth: Vec<usize>,
+    layers: Vec<Vec<NodeIndex>>,
+}
+
+impl Layers {
+    pub fn depth(&self, n: NodeIndex) -> usize {
+        self.depth[n.index()]
+    }
+
+    pub fn len(&self) -> usize {
+        self.layers.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.layers.is_empty()
+    }
+
+    pub fn get(&self, depth: usize) -> Option<&[NodeIndex]> {
+        self.layers.get(depth).map(Vec::as_slice)
+    }
+
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &[NodeIndex]> + ExactSizeIterator {
+        self.layers.iter().map(Vec::as_slice)
+    }
+}
+
+impl Index<usize> for Layers {
+    type Output = [NodeIndex];
+
+    fn index(&self, depth: usize) -> &Self::Output {
+        &self.layers[depth]
+    }
+}
+
+impl<'a> IntoIterator for &'a Layers {
+    type Item = &'a [NodeIndex];
+    type IntoIter = std::iter::Map<
+        std::slice::Iter<'a, Vec<NodeIndex>>,
+        fn(&'a Vec<NodeIndex>) -> &'a [NodeIndex],
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.layers.iter().map(Vec::as_slice)
     }
 }

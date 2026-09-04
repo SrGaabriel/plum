@@ -97,3 +97,10 @@ fn label(graph: &DependencyGraph, n: NodeIndex, palette: Painter) -> String {
         None => name,
     }
 }
+
+pub async fn search(manifest_path: &Path, name: String) {
+    let context = derive_context();
+    let manifest = parse_manifest(&context, manifest_path);
+
+    todo!()
+}

@@ -1,4 +1,5 @@
 mod build;
+mod clean;
 mod graph;
 mod manifest;
 mod style;
@@ -26,6 +27,10 @@ enum Command {
         #[clap(subcommand)]
         graph: Option<Graph>,
     },
+    Clean {
+        #[clap(long, default_value = "plum.dhall")]
+        manifest: PathBuf,
+    },
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -38,10 +43,14 @@ async fn main() {
     let cli = Cli::parse();
     match cli.command {
         Command::Build { manifest } => build::exec(&manifest).await,
+        Command::Clean { manifest } => clean::exec(&manifest),
         Command::Graph {
             manifest,
             graph: None,
         } => graph::exec(&manifest).await,
-        Command::Graph { manifest, graph } => todo!(),
+        Command::Graph {
+            manifest,
+            graph: Some(Graph::Search { name }),
+        } => graph::search(&manifest, name).await,
     }
 }

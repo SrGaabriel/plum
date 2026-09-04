@@ -5,9 +5,8 @@ use std::{
 
 use heck::ToPascalCase;
 use plum_graph::{BuildNode, DependencyGraph};
+use plum_manifest::BUILD_FOLDER_NAME;
 use thiserror::Error;
-
-const BUILD_FOLDER_NAME: &str = "target";
 
 #[derive(Debug, Error)]
 pub enum CompilationError {

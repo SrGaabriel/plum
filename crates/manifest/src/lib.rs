@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const MANIFEST_FILE: &str = "plum.dhall";
+pub const BUILD_FOLDER_NAME: &str = "target";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {

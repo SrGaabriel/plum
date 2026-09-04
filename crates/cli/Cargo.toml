@@ -17,6 +17,7 @@ mago-pager.workspace = true
 owo-colors.workspace = true
 indicatif.workspace = true
 miette.workspace = true
+fs_extra.workspace = true
 
 [lints]
 workspace = true

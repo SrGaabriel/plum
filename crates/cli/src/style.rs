@@ -186,6 +186,10 @@ pub fn status_meta(tone: Tone, verb: &str, subject: impl Display, meta: impl Dis
     let _ = std::io::stdout().flush();
 }
 
+pub fn success(msg: impl Display) {
+    println!("{} {msg}", paint("success:", Tone::Success));
+}
+
 pub fn error(msg: impl Display) {
     eprintln!("{} {msg}", paint("error:", Tone::Error));
 }

@@ -5,15 +5,13 @@ use plum_manifest::BUILD_FOLDER_NAME;
 use crate::{
     manifest::{derive_context, parse_manifest},
     style::{self},
+    util::project_dir,
 };
 
 pub fn exec(manifest_path: &Path) {
     let context = derive_context();
     let _ = parse_manifest(&context, manifest_path);
-    let project_path = manifest_path.parent().unwrap_or_else(|| {
-        style::error("manifest file must be in a directory");
-        std::process::exit(1);
-    });
+    let project_path = project_dir(manifest_path);
 
     let artifacts_folder = project_path.join(BUILD_FOLDER_NAME);
 

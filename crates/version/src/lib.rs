@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Display, num::ParseIntError, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Version {
     pub components: Box<[u64]>,
 }

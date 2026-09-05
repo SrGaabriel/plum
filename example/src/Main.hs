@@ -1,6 +1,6 @@
 module Main where
 
-import Test (example)
+import Example (example)
 
 main :: IO ()
 main = putStrLn example

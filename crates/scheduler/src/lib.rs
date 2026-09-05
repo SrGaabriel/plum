@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use flume::{Receiver, RecvError, Selector};
 use fxhash::FxHashMap;
-use plum_ghc::CompilationError;
+use plum_ghc::{Artifact, CompilationError};
 use plum_graph::{BuildNode, DependencyGraph, NodeIndex};
 use thiserror::Error;
 
@@ -26,7 +26,7 @@ pub enum GHCError {
 }
 
 enum Outcome {
-    Built(NodeIndex),
+    Built(NodeIndex, Artifact),
     Failed(NodeIndex, GHCError),
     Skipped(NodeIndex),
 }
@@ -49,6 +49,17 @@ struct CoordResult {
     skipped: usize,
     first_error: Option<GHCError>,
     external_cancel: bool,
+}
+
+struct BuildDispatch {
+    pub node: NodeIndex,
+    pub artifacts: Vec<Artifact>,
+}
+
+impl BuildDispatch {
+    pub fn new(node: NodeIndex, artifacts: Vec<Artifact>) -> Self {
+        Self { node, artifacts }
+    }
 }
 
 pub fn run_build<G>(
@@ -84,7 +95,7 @@ where
         .filter(|n| remaining[n] == 0)
         .collect();
 
-    let (work_tx, work_rx) = flume::unbounded::<NodeIndex>();
+    let (work_tx, work_rx) = flume::unbounded::<BuildDispatch>();
     let (result_tx, result_rx) = flume::unbounded::<Outcome>();
     let cancelled = AtomicBool::new(false);
 
@@ -94,14 +105,18 @@ where
             let result_tx = result_tx.clone();
             let cancelled = &cancelled;
             s.spawn(move || {
-                while let Ok(node) = work_rx.recv() {
+                while let Ok(dispatch) = work_rx.recv() {
                     if cancelled.load(Ordering::Relaxed) {
-                        let _ = result_tx.send(Outcome::Skipped(node));
+                        let _ = result_tx.send(Outcome::Skipped(dispatch.node));
                         continue;
                     }
-                    let out = match plum_ghc::compile_module(graph.node(node), graph) {
-                        Ok(_artifact) => Outcome::Built(node),
-                        Err(e) => Outcome::Failed(node, e.into()),
+                    let out = match plum_ghc::compile_module(
+                        graph.node(dispatch.node),
+                        graph,
+                        &dispatch.artifacts,
+                    ) {
+                        Ok(artifact) => Outcome::Built(dispatch.node, artifact),
+                        Err(e) => Outcome::Failed(dispatch.node, e.into()),
                     };
                     let _ = result_tx.send(out);
                 }
@@ -114,10 +129,11 @@ where
         let mut skipped = 0usize;
         let mut inflight = 0usize;
         let mut first_error: Option<GHCError> = None;
+        let mut artifacts: FxHashMap<NodeIndex, Artifact> = FxHashMap::default();
         let mut external_cancel = false;
 
         for n in initial {
-            let _ = work_tx.send(n);
+            let _ = work_tx.send(BuildDispatch::new(n, Vec::new()));
             inflight += 1;
         }
 
@@ -139,14 +155,19 @@ where
                 Event::Result(Ok(outcome)) => {
                     inflight -= 1;
                     match outcome {
-                        Outcome::Built(node) => {
+                        Outcome::Built(node, artifact) => {
                             completed += 1;
+                            artifacts.insert(node, artifact);
                             if !cancelled.load(Ordering::Relaxed) {
                                 for dep in graph.dependents(node) {
                                     if let Some(c) = remaining.get_mut(&dep) {
                                         *c -= 1;
                                         if *c == 0 {
-                                            let _ = work_tx.send(dep);
+                                            let deps = graph
+                                                .dependencies(dep)
+                                                .filter_map(|d| artifacts.get(&d).cloned())
+                                                .collect();
+                                            let _ = work_tx.send(BuildDispatch::new(dep, deps));
                                             inflight += 1;
                                         }
                                     }

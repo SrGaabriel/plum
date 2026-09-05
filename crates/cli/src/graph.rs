@@ -7,19 +7,16 @@ use plum_resolver::Resolver;
 
 use crate::manifest::{derive_context, parse_manifest};
 use crate::style::{self, Painter, Style};
-use crate::util::plural;
+use crate::util::{plural, project_dir};
 
 pub async fn exec(manifest_path: &Path) {
     let context = derive_context();
     let manifest = parse_manifest(&context, manifest_path);
-    let project_path = manifest_path.parent().unwrap_or_else(|| {
-        style::error("manifest file must be in a directory");
-        std::process::exit(1);
-    });
+    let project_path = project_dir(manifest_path);
 
     let resolver = Resolver::new(context);
     let spinner = style::spinner("resolving dependencies");
-    let resolved = resolver.resolve_dependencies(&manifest, project_path).await;
+    let resolved = resolver.resolve_dependencies(&manifest, &project_path).await;
     spinner.finish_and_clear();
     let graph = resolved.unwrap_or_else(|err| {
         style::error(format!("could not generate dependency graph: {err}"));
